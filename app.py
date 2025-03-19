@@ -1,7 +1,4 @@
-# Step 1: Install required libraries
-!pip install -q gradio vaderSentiment pandas matplotlib nltk plotly
-
-# Step 2: Import necessary libraries
+# app.py
 import gradio as gr
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import pandas as pd
@@ -9,6 +6,7 @@ import plotly.express as px
 import os
 import nltk
 from nltk.tokenize import sent_tokenize
+import sys
 
 # Step 3: Ensure NLTK resources are downloaded with verification
 print("Downloading NLTK resources...")
@@ -17,13 +15,15 @@ try:
     nltk.download('punkt_tab', quiet=False)
     print("NLTK resources downloaded successfully.")
 except Exception as e:
-    raise ValueError(f"Failed to download NLTK resources: {str(e)}")
+    print(f"Failed to download NLTK resources: {str(e)}", file=sys.stderr)
+    sys.exit(1)
 
 try:
     nltk.data.find('tokenizers/punkt_tab')
     print("punkt_tab resource found.")
 except LookupError:
-    raise ValueError("punkt_tab resource not found after download. Please check NLTK installation.")
+    print("punkt_tab resource not found after download. Please check NLTK installation.", file=sys.stderr)
+    sys.exit(1)
 
 # Step 4: Initialize VADER sentiment analyzer
 analyzer = SentimentIntensityAnalyzer()
@@ -165,7 +165,6 @@ def generate_interactive_plot(doc_df):
     fig.update_layout(showlegend=False)
     return fig
 
-# Step 6: Function to update UI components based on file upload
 def update_file_ui(file):
     try:
         file_ext = os.path.splitext(file.name)[1].lower()
@@ -208,7 +207,6 @@ def update_file_ui(file):
 with gr.Blocks() as demo:
     gr.Markdown("### Sentiment Analysis App with Multiple Input Options")
 
-    # Tab 1: Text Input
     with gr.Tab("Text Input"):
         with gr.Row():
             text_input = gr.Textbox(label="Enter your text here", lines=5, placeholder="Type your text...")
@@ -230,7 +228,6 @@ with gr.Blocks() as demo:
             outputs=[sentiment_results_text, doc_sentiment_results_text, error_message_text, gr.State()]
         )
 
-    # Tab 2: File Upload
     with gr.Tab("File Upload"):
         file_input = gr.File(label="Upload a .txt or .csv file")
         with gr.Row():
@@ -241,10 +238,10 @@ with gr.Blocks() as demo:
         doc_sentiment_results_file = gr.Dataframe(label="Document-Level Sentiment Analysis Results")
         error_message_file = gr.Textbox(label="Error Message", interactive=False)
 
-        def perform_analysis_file(file, doc_id_col, text_col):
+        def perform_analysis_file(file, doc_id_col, text_dropdown):
             file_ext = os.path.splitext(file.name)[1].lower()
             if file_ext == '.csv':
-                sentence_df, doc_df, error, plot_df = analyze_file(file, doc_id_col, text_col)
+                sentence_df, doc_df, error, plot_df = analyze_file(file, doc_id_col, text_dropdown)
             else:
                 sentence_df, doc_df, error, plot_df = analyze_file(file)
             if error:
@@ -268,7 +265,6 @@ with gr.Blocks() as demo:
             outputs=[sentiment_results_file, doc_sentiment_results_file, error_message_file, gr.State()]
         )
 
-    # Tab 3: Data
     with gr.Tab("Data"):
         data_preview = gr.Dataframe(label="Data Preview (First 5 Rows)")
 
@@ -278,23 +274,20 @@ with gr.Blocks() as demo:
             outputs=[data_preview, gr.State(), gr.State(), gr.State()]
         )
 
-    # Tab 4: Plot
     with gr.Tab("Plot"):
         plot_output = gr.Plot(label="Document Sentiment Plot")
 
-        # Update plot from Text Input tab
         analyze_button_text.click(
             perform_analysis_text,
             inputs=text_input,
             outputs=[sentiment_results_text, doc_sentiment_results_text, error_message_text, plot_output]
         )
 
-        # Update plot from File Upload tab
         analyze_button_file.click(
             perform_analysis_file,
             inputs=[file_input, doc_id_dropdown, text_dropdown],
             outputs=[sentiment_results_file, doc_sentiment_results_file, error_message_file, plot_output]
         )
 
-# Launch the interface in Colab
-demo.launch(share=True)
+# Launch the interface locally
+demo.launch(server_name="0.0.0.0", server_port=7860)
